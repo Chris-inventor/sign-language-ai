@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   FilesetResolver,
   HandLandmarker,
@@ -10,61 +10,63 @@ export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  // ✅ 중요: AI는 ref로 유지해야 안 사라짐
   const landmarkerRef = useRef<HandLandmarker | null>(null)
+  const runningRef = useRef(false)
 
   const [status, setStatus] = useState("READY")
-  const [result, setResult] = useState("손을 보여주세요 ✋")
+  const [text, setText] = useState("손을 보여주세요 ✋")
 
   // =========================
-  // AI 로딩 (핵심 수정)
+  // AI 로딩
   // =========================
   const loadAI = async () => {
     const vision = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     )
 
-    landmarkerRef.current =
-      await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        },
-        runningMode: "VIDEO",
-        numHands: 2,
-      })
+    landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath:
+          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      },
+      runningMode: "VIDEO",
+      numHands: 2,
+    })
   }
 
   // =========================
-  // 카메라
+  // 카메라 시작
   // =========================
   const startCamera = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
     })
 
-    const video = videoRef.current
-    if (!video) return
+    if (!videoRef.current) return
 
-    video.srcObject = stream
-    await video.play()
+    videoRef.current.srcObject = stream
+    await videoRef.current.play()
 
     setStatus("CAMERA ON")
   }
 
   // =========================
-  // 손 인식
+  // AI 시작 (핵심)
   // =========================
-  const startDetection = async () => {
+  const start = async () => {
     if (!videoRef.current) return
 
-    setStatus("LOADING AI")
-
     if (!landmarkerRef.current) {
+      setStatus("LOADING AI")
       await loadAI()
     }
 
-    const detectLoop = async () => {
+    runningRef.current = true
+    setStatus("RUNNING")
+
+    const loop = async () => {
+      if (!runningRef.current) return
+
       const video = videoRef.current!
       const canvas = canvasRef.current!
       const landmarker = landmarkerRef.current
@@ -83,9 +85,8 @@ export default function Page() {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-      // ✅ 진짜 동작 여부
       if (results.landmarks.length > 0) {
-        setResult("손 감지 ✋")
+        setText("손 감지 ✋")
 
         for (const hand of results.landmarks) {
           for (const p of hand) {
@@ -102,24 +103,50 @@ export default function Page() {
           }
         }
       } else {
-        setResult("손 없음")
+        setText("손 없음")
       }
 
-      requestAnimationFrame(detectLoop)
+      requestAnimationFrame(loop)
     }
 
-    detectLoop()
+    loop()
+  }
+
+  // =========================
+  // 중지
+  // =========================
+  const stop = () => {
+    runningRef.current = false
+    setStatus("STOPPED")
+  }
+
+  // =========================
+  // 초기화
+  // =========================
+  const reset = () => {
+    runningRef.current = false
+    setText("손을 보여주세요 ✋")
+    setStatus("READY")
+
+    const canvas = canvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext("2d")!
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
   }
 
   return (
     <div style={styles.page}>
 
-      <h1 style={styles.title}>SIGN AI 🤖</h1>
+      <h1 style={styles.title}>
+        SIGN LANGUAGE AI 🤖
+      </h1>
 
       <p>{status}</p>
 
       <div style={styles.container}>
 
+        {/* VIDEO */}
         <div style={styles.videoBox}>
           <video
             ref={videoRef}
@@ -135,17 +162,26 @@ export default function Page() {
           />
         </div>
 
+        {/* BUTTONS */}
         <div style={styles.panel}>
 
           <button style={styles.btn} onClick={startCamera}>
             📷 카메라
           </button>
 
-          <button style={styles.btnGreen} onClick={startDetection}>
-            ✋ AI 시작
+          <button style={styles.btnGreen} onClick={start}>
+            ▶ 시작
           </button>
 
-          <h2>{result}</h2>
+          <button style={styles.btnRed} onClick={stop}>
+            ⏹ 중지
+          </button>
+
+          <button style={styles.btnGray} onClick={reset}>
+            🔄 초기화
+          </button>
+
+          <h2>{text}</h2>
 
         </div>
 
@@ -155,6 +191,9 @@ export default function Page() {
   )
 }
 
+// =========================
+// 스타일 (안정 버전)
+// =========================
 const styles: any = {
   page: {
     minHeight: "100vh",
@@ -162,17 +201,71 @@ const styles: any = {
     color: "white",
     padding: 20,
   },
-  title: { fontSize: 28, fontWeight: "bold" },
-  container: { display: "flex", gap: 20 },
-  videoBox: { position: "relative", width: 600, height: 400 },
-  video: { width: "100%", height: "100%" },
+
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+
+  container: {
+    display: "flex",
+    gap: 20,
+  },
+
+  videoBox: {
+    position: "relative",
+    width: 600,
+    height: 400,
+    background: "black",
+  },
+
+  video: {
+    width: "100%",
+    height: "100%",
+  },
+
   canvas: {
     position: "absolute",
     top: 0,
     left: 0,
     pointerEvents: "none",
   },
-  panel: { display: "flex", flexDirection: "column", gap: 10 },
-  btn: { padding: 10, background: "#2563eb", color: "white" },
-  btnGreen: { padding: 10, background: "#16a34a", color: "white" },
+
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+
+  btn: {
+    padding: 10,
+    background: "#2563eb",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  btnGreen: {
+    padding: 10,
+    background: "#16a34a",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  btnRed: {
+    padding: 10,
+    background: "#ef4444",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+  },
+
+  btnGray: {
+    padding: 10,
+    background: "#374151",
+    border: "none",
+    color: "white",
+    cursor: "pointer",
+  },
 }
