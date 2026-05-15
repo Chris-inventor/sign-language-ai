@@ -21,16 +21,23 @@ export default function Page() {
   const [selectedDevice, setSelectedDevice] = useState("")
 
   // =========================
-  // 카메라 목록 가져오기
+  // 카메라 목록 불러오기
   // =========================
   const getCameras = async () => {
-    const all = await navigator.mediaDevices.enumerateDevices()
-    const cams = all.filter(d => d.kind === "videoinput")
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true })
 
-    setDevices(cams)
+      const all = await navigator.mediaDevices.enumerateDevices()
+      const cams = all.filter(d => d.kind === "videoinput")
 
-    if (cams.length > 0 && !selectedDevice) {
-      setSelectedDevice(cams[0].deviceId)
+      setDevices(cams)
+
+      if (cams.length > 0) {
+        // 👉 기본: 마지막 카메라 (외장/작동 카메라일 확률 높음)
+        setSelectedDevice(cams[cams.length - 1].deviceId)
+      }
+    } catch (e) {
+      console.log("camera permission error", e)
     }
   }
 
@@ -39,28 +46,26 @@ export default function Page() {
   }, [])
 
   // =========================
-  // ⭐ 안정 카메라 코드 (이전 버전 기반)
+  // 카메라 시작
   // =========================
   const startCamera = async (deviceId?: string) => {
     try {
-      // 기존 스트림 종료
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: deviceId
-          ? { deviceId: { exact: deviceId } }
+          ? { deviceId: { ideal: deviceId } }
           : true,
       })
 
       streamRef.current = stream
 
-      const video = videoRef.current
-      if (!video) return
-
-      video.srcObject = stream
-      await video.play()
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
 
       setStatus("CAMERA ON")
     } catch (e) {
@@ -77,19 +82,21 @@ export default function Page() {
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     )
 
-    landmarkerRef.current =
-      await HandLandmarker.createFromOptions(vision, {
+    landmarkerRef.current = await HandLandmarker.createFromOptions(
+      vision,
+      {
         baseOptions: {
           modelAssetPath:
             "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
         },
         runningMode: "VIDEO",
         numHands: 2,
-      })
+      }
+    )
   }
 
   // =========================
-  // 제스처
+  // 제스처 인식
   // =========================
   const getGesture = (landmarks: any) => {
     if (!landmarks || landmarks.length === 0) return "NONE"
@@ -204,7 +211,14 @@ export default function Page() {
   // =========================
   const switchCamera = (id: string) => {
     setSelectedDevice(id)
-    startCamera(id)
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop())
+    }
+
+    setTimeout(() => {
+      startCamera(id)
+    }, 100)
   }
 
   return (
@@ -235,7 +249,6 @@ export default function Page() {
 
         <div style={styles.panel}>
 
-          {/* 카메라 선택 */}
           <select
             value={selectedDevice}
             onChange={(e) => switchCamera(e.target.value)}
