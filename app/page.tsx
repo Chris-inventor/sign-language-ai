@@ -21,7 +21,13 @@ export default function Page() {
   const [selectedDevice, setSelectedDevice] = useState("")
 
   // =========================
-  // 카메라 목록 불러오기
+  // 추가 기능 state
+  // =========================
+  const [history, setHistory] = useState<string[]>([])
+  const [sentence, setSentence] = useState<string>("")
+
+  // =========================
+  // 카메라 목록
   // =========================
   const getCameras = async () => {
     try {
@@ -33,11 +39,10 @@ export default function Page() {
       setDevices(cams)
 
       if (cams.length > 0) {
-        // 👉 기본: 마지막 카메라 (외장/작동 카메라일 확률 높음)
         setSelectedDevice(cams[cams.length - 1].deviceId)
       }
     } catch (e) {
-      console.log("camera permission error", e)
+      console.log(e)
     }
   }
 
@@ -46,7 +51,7 @@ export default function Page() {
   }, [])
 
   // =========================
-  // 카메라 시작
+  // 카메라 시작 (코어 유지)
   // =========================
   const startCamera = async (deviceId?: string) => {
     try {
@@ -96,7 +101,7 @@ export default function Page() {
   }
 
   // =========================
-  // 제스처 인식
+  // 수어 인식 (확장)
   // =========================
   const getGesture = (landmarks: any) => {
     if (!landmarks || landmarks.length === 0) return "NONE"
@@ -111,17 +116,24 @@ export default function Page() {
     const pinky = isUp(hand[20], hand[18])
     const thumb = hand[4].x < hand[3].x
 
-    if (index && middle && ring && pinky) return "HELLO ✋"
-    if (!index && !middle && !ring && !pinky) return "YES 👍"
-    if (index && !middle && !ring && !pinky) return "ONE ☝️"
-    if (index && middle && !ring && !pinky) return "PEACE ✌️"
-    if (thumb) return "GOOD 👍"
+    // 기본
+    if (index && middle && ring && pinky) return "HELLO"
+    if (!index && !middle && !ring && !pinky) return "YES"
+    if (index && !middle && !ring && !pinky) return "ONE"
+    if (index && middle && !ring && !pinky) return "PEACE"
+    if (thumb) return "GOOD"
+
+    // 추가 수어
+    if (index && middle && thumb) return "OK"
+    if (thumb && pinky) return "CALL"
+    if (thumb && index && pinky) return "LOVE"
+    if (!index && middle && !ring && !pinky) return "STOP"
 
     return "UNKNOWN"
   }
 
   // =========================
-  // 시작
+  // 시작 루프
   // =========================
   const start = async () => {
     if (!videoRef.current) return
@@ -157,8 +169,24 @@ export default function Page() {
 
       if (results.landmarks.length > 0) {
         const gesture = getGesture(results.landmarks)
+
         setResult(gesture)
 
+        // 히스토리
+        setHistory(prev => {
+          const updated = [gesture, ...prev]
+          return updated.slice(0, 5)
+        })
+
+        // 문장 생성
+        if (gesture !== "UNKNOWN" && gesture !== "NONE") {
+          setSentence(prev => {
+            if (prev.includes(gesture)) return prev
+            return prev + " " + gesture
+          })
+        }
+
+        // 랜드마크 그리기
         for (const hand of results.landmarks) {
           for (const p of hand) {
             ctx.beginPath()
@@ -197,6 +225,8 @@ export default function Page() {
   const reset = () => {
     runningRef.current = false
     setResult("손을 보여주세요 ✋")
+    setHistory([])
+    setSentence("")
     setStatus("READY")
 
     const canvas = canvasRef.current
@@ -207,7 +237,7 @@ export default function Page() {
   }
 
   // =========================
-  // 카메라 변경
+  // 카메라 전환
   // =========================
   const switchCamera = (id: string) => {
     setSelectedDevice(id)
@@ -232,6 +262,7 @@ export default function Page() {
 
       <div style={styles.container}>
 
+        {/* VIDEO */}
         <div style={styles.videoBox}>
           <video
             ref={videoRef}
@@ -247,6 +278,7 @@ export default function Page() {
           />
         </div>
 
+        {/* PANEL */}
         <div style={styles.panel}>
 
           <select
@@ -277,7 +309,15 @@ export default function Page() {
             🔄 초기화
           </button>
 
-          <h2>{result}</h2>
+          <h2>👉 {result}</h2>
+
+          <h3>🧠 History</h3>
+          {history.map((h, i) => (
+            <p key={i}>{h}</p>
+          ))}
+
+          <h3>📖 Sentence</h3>
+          <p>{sentence || "..."}</p>
 
         </div>
 
