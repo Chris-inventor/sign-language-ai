@@ -10,11 +10,64 @@ export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
+  const streamRef = useRef<MediaStream | null>(null)
   const landmarkerRef = useRef<HandLandmarker | null>(null)
   const runningRef = useRef(false)
 
   const [status, setStatus] = useState("READY")
-  const [text, setText] = useState("손을 보여주세요 ✋")
+  const [result, setResult] = useState("손을 보여주세요 ✋")
+
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDevice, setSelectedDevice] = useState("")
+
+  // =========================
+  // 카메라 목록 가져오기
+  // =========================
+  const getCameras = async () => {
+    const all = await navigator.mediaDevices.enumerateDevices()
+    const cams = all.filter(d => d.kind === "videoinput")
+
+    setDevices(cams)
+
+    if (cams.length > 0 && !selectedDevice) {
+      setSelectedDevice(cams[0].deviceId)
+    }
+  }
+
+  useEffect(() => {
+    getCameras()
+  }, [])
+
+  // =========================
+  // ⭐ 안정 카메라 코드 (이전 버전 기반)
+  // =========================
+  const startCamera = async (deviceId?: string) => {
+    try {
+      // 기존 스트림 종료
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: deviceId
+          ? { deviceId: { exact: deviceId } }
+          : true,
+      })
+
+      streamRef.current = stream
+
+      const video = videoRef.current
+      if (!video) return
+
+      video.srcObject = stream
+      await video.play()
+
+      setStatus("CAMERA ON")
+    } catch (e) {
+      console.log(e)
+      alert("카메라 오류")
+    }
+  }
 
   // =========================
   // AI 로딩
@@ -24,34 +77,44 @@ export default function Page() {
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     )
 
-    landmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-      },
-      runningMode: "VIDEO",
-      numHands: 2,
-    })
+    landmarkerRef.current =
+      await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        },
+        runningMode: "VIDEO",
+        numHands: 2,
+      })
   }
 
   // =========================
-  // 카메라 시작
+  // 제스처
   // =========================
-  const startCamera = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-    })
+  const getGesture = (landmarks: any) => {
+    if (!landmarks || landmarks.length === 0) return "NONE"
 
-    if (!videoRef.current) return
+    const hand = landmarks[0]
 
-    videoRef.current.srcObject = stream
-    await videoRef.current.play()
+    const isUp = (tip: any, base: any) => tip.y < base.y
 
-    setStatus("CAMERA ON")
+    const index = isUp(hand[8], hand[6])
+    const middle = isUp(hand[12], hand[10])
+    const ring = isUp(hand[16], hand[14])
+    const pinky = isUp(hand[20], hand[18])
+    const thumb = hand[4].x < hand[3].x
+
+    if (index && middle && ring && pinky) return "HELLO ✋"
+    if (!index && !middle && !ring && !pinky) return "YES 👍"
+    if (index && !middle && !ring && !pinky) return "ONE ☝️"
+    if (index && middle && !ring && !pinky) return "PEACE ✌️"
+    if (thumb) return "GOOD 👍"
+
+    return "UNKNOWN"
   }
 
   // =========================
-  // AI 시작 (핵심)
+  // 시작
   // =========================
   const start = async () => {
     if (!videoRef.current) return
@@ -86,7 +149,8 @@ export default function Page() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       if (results.landmarks.length > 0) {
-        setText("손 감지 ✋")
+        const gesture = getGesture(results.landmarks)
+        setResult(gesture)
 
         for (const hand of results.landmarks) {
           for (const p of hand) {
@@ -103,7 +167,7 @@ export default function Page() {
           }
         }
       } else {
-        setText("손 없음")
+        setResult("손 없음")
       }
 
       requestAnimationFrame(loop)
@@ -125,7 +189,7 @@ export default function Page() {
   // =========================
   const reset = () => {
     runningRef.current = false
-    setText("손을 보여주세요 ✋")
+    setResult("손을 보여주세요 ✋")
     setStatus("READY")
 
     const canvas = canvasRef.current
@@ -133,6 +197,14 @@ export default function Page() {
       const ctx = canvas.getContext("2d")!
       ctx.clearRect(0, 0, canvas.width, canvas.height)
     }
+  }
+
+  // =========================
+  // 카메라 변경
+  // =========================
+  const switchCamera = (id: string) => {
+    setSelectedDevice(id)
+    startCamera(id)
   }
 
   return (
@@ -146,7 +218,6 @@ export default function Page() {
 
       <div style={styles.container}>
 
-        {/* VIDEO */}
         <div style={styles.videoBox}>
           <video
             ref={videoRef}
@@ -162,26 +233,38 @@ export default function Page() {
           />
         </div>
 
-        {/* BUTTONS */}
         <div style={styles.panel}>
 
-          <button style={styles.btn} onClick={startCamera}>
+          {/* 카메라 선택 */}
+          <select
+            value={selectedDevice}
+            onChange={(e) => switchCamera(e.target.value)}
+            style={styles.select}
+          >
+            {devices.map((d, i) => (
+              <option key={d.deviceId} value={d.deviceId}>
+                Camera {i + 1}
+              </option>
+            ))}
+          </select>
+
+          <button onClick={() => startCamera(selectedDevice)} style={styles.btn}>
             📷 카메라
           </button>
 
-          <button style={styles.btnGreen} onClick={start}>
+          <button onClick={start} style={styles.btnGreen}>
             ▶ 시작
           </button>
 
-          <button style={styles.btnRed} onClick={stop}>
+          <button onClick={stop} style={styles.btnRed}>
             ⏹ 중지
           </button>
 
-          <button style={styles.btnGray} onClick={reset}>
+          <button onClick={reset} style={styles.btnGray}>
             🔄 초기화
           </button>
 
-          <h2>{text}</h2>
+          <h2>{result}</h2>
 
         </div>
 
@@ -192,7 +275,7 @@ export default function Page() {
 }
 
 // =========================
-// 스타일 (안정 버전)
+// STYLE
 // =========================
 const styles: any = {
   page: {
@@ -201,71 +284,24 @@ const styles: any = {
     color: "white",
     padding: 20,
   },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-  },
-
-  container: {
-    display: "flex",
-    gap: 20,
-  },
-
-  videoBox: {
-    position: "relative",
-    width: 600,
-    height: 400,
-    background: "black",
-  },
-
-  video: {
-    width: "100%",
-    height: "100%",
-  },
-
+  title: { fontSize: 28, fontWeight: "bold" },
+  container: { display: "flex", gap: 20 },
+  videoBox: { position: "relative", width: 600, height: 400 },
+  video: { width: "100%", height: "100%" },
   canvas: {
     position: "absolute",
     top: 0,
     left: 0,
     pointerEvents: "none",
   },
-
   panel: {
     display: "flex",
     flexDirection: "column",
     gap: 10,
   },
-
-  btn: {
-    padding: 10,
-    background: "#2563eb",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
-
-  btnGreen: {
-    padding: 10,
-    background: "#16a34a",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
-
-  btnRed: {
-    padding: 10,
-    background: "#ef4444",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
-
-  btnGray: {
-    padding: 10,
-    background: "#374151",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
+  select: { padding: 8 },
+  btn: { padding: 10, background: "#2563eb", color: "white" },
+  btnGreen: { padding: 10, background: "#16a34a", color: "white" },
+  btnRed: { padding: 10, background: "#ef4444", color: "white" },
+  btnGray: { padding: 10, background: "#374151", color: "white" },
 }
