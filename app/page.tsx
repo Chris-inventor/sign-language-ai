@@ -12,16 +12,24 @@ export default function Page() {
 
   const streamRef = useRef<MediaStream | null>(null)
   const landmarkerRef = useRef<HandLandmarker | null>(null)
+
   const runningRef = useRef(false)
 
   const [status, setStatus] = useState("READY")
   const [result, setResult] = useState("손을 보여주세요 ✋")
 
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
-  const [selectedDevice, setSelectedDevice] = useState("")
+  const [devices, setDevices] = useState<
+    MediaDeviceInfo[]
+  >([])
 
-  const [history, setHistory] = useState<string[]>([])
-  const [sentence, setSentence] = useState<string>("")
+  const [selectedDevice, setSelectedDevice] =
+    useState("")
+
+  const [history, setHistory] = useState<string[]>(
+    []
+  )
+
+  const [sentence, setSentence] = useState("")
 
   // =========================
   // 카메라 목록
@@ -111,13 +119,13 @@ export default function Page() {
               "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
           },
           runningMode: "VIDEO",
-          numHands: 2,
+          numHands: 1,
         }
       )
   }
 
   // =========================
-  // 손동작 / 수어 / 알파벳
+  // 알파벳 인식
   // =========================
   const getGesture = (landmarks: any) => {
     if (!landmarks || landmarks.length === 0)
@@ -162,25 +170,63 @@ export default function Page() {
     )
       return "B"
 
-    // L
+    // C
     if (
       thumb &&
+      index &&
+      middle &&
+      ring &&
+      pinky
+    )
+      return "C"
+
+    // D
+    if (
       index &&
       !middle &&
       !ring &&
       !pinky
     )
-      return "L"
+      return "D"
 
-    // Y
+    // E
     if (
-      thumb &&
-      pinky &&
+      !thumb &&
       !index &&
       !middle &&
-      !ring
+      !ring &&
+      !pinky
     )
-      return "Y"
+      return "E"
+
+    // F
+    if (
+      thumb &&
+      index &&
+      middle &&
+      !ring &&
+      !pinky
+    )
+      return "F"
+
+    // G
+    if (
+      thumb &&
+      index &&
+      !middle &&
+      !ring &&
+      pinky
+    )
+      return "G"
+
+    // H
+    if (
+      index &&
+      middle &&
+      !ring &&
+      pinky
+    )
+      return "H"
 
     // I
     if (
@@ -192,12 +238,126 @@ export default function Page() {
     )
       return "I"
 
-    // V
+    // J
+    if (
+      pinky &&
+      thumb
+    )
+      return "J"
+
+    // K
+    if (
+      thumb &&
+      index &&
+      middle &&
+      !ring &&
+      !pinky
+    )
+      return "K"
+
+    // L
+    if (
+      thumb &&
+      index &&
+      !middle &&
+      !ring &&
+      !pinky
+    )
+      return "L"
+
+    // M
+    if (
+      !thumb &&
+      index &&
+      middle &&
+      ring &&
+      !pinky
+    )
+      return "M"
+
+    // N
+    if (
+      !thumb &&
+      index &&
+      middle &&
+      !ring &&
+      !pinky
+    )
+      return "N"
+
+    // O
+    if (
+      thumb &&
+      ring &&
+      pinky
+    )
+      return "O"
+
+    // P
+    if (
+      thumb &&
+      middle &&
+      !index &&
+      !ring &&
+      !pinky
+    )
+      return "P"
+
+    // Q
+    if (
+      thumb &&
+      ring &&
+      !index &&
+      !middle &&
+      !pinky
+    )
+      return "Q"
+
+    // R
+    if (
+      index &&
+      middle &&
+      ring &&
+      !pinky
+    )
+      return "R"
+
+    // S
+    if (
+      !thumb &&
+      !index &&
+      !middle &&
+      ring &&
+      !pinky
+    )
+      return "S"
+
+    // T
+    if (
+      thumb &&
+      !index &&
+      middle &&
+      !ring &&
+      !pinky
+    )
+      return "T"
+
+    // U
     if (
       index &&
       middle &&
       !ring &&
       !pinky
+    )
+      return "U"
+
+    // V
+    if (
+      index &&
+      middle &&
+      !ring &&
+      !pinky &&
+      !thumb
     )
       return "V"
 
@@ -210,79 +370,16 @@ export default function Page() {
     )
       return "W"
 
-    // =========================
-    // 추가 제스처
-    // =========================
-
-    // 👍
-    if (
-      thumb &&
-      !index &&
-      !middle &&
-      !ring &&
-      !pinky
-    )
-      return "THUMBS UP 👍"
-
-    // 🤘
+    // X
     if (
       index &&
-      pinky &&
       !middle &&
-      !ring
-    )
-      return "ROCK 🤘"
-
-    // 3️⃣
-    if (
-      index &&
-      middle &&
       ring &&
       !pinky
     )
-      return "THREE 3️⃣"
+      return "X"
 
-    // 4️⃣
-    if (
-      index &&
-      middle &&
-      ring &&
-      pinky &&
-      !thumb
-    )
-      return "FOUR 4️⃣"
-
-    // 🕷️
-    if (
-      thumb &&
-      index &&
-      pinky &&
-      !middle &&
-      !ring
-    )
-      return "SPIDERMAN 🕷️"
-
-    // ✊
-    if (
-      !thumb &&
-      !index &&
-      !middle &&
-      !ring &&
-      !pinky
-    )
-      return "FIST ✊"
-
-    // 👌
-    if (
-      index &&
-      middle &&
-      thumb &&
-      !ring &&
-      !pinky
-    )
-      return "OK 👌"
-
-    // 🤙
+    // Y
     if (
       thumb &&
       pinky &&
@@ -290,57 +387,16 @@ export default function Page() {
       !middle &&
       !ring
     )
-      return "CALL 🤙"
+      return "Y"
 
-    // ❤️
-    if (
-      thumb &&
-      index &&
-      pinky
-    )
-      return "LOVE ❤️"
-
-    // ✋
-    if (
-      !index &&
-      middle &&
-      !ring &&
-      !pinky
-    )
-      return "STOP ✋"
-
-    // 기본
+    // Z
     if (
       index &&
-      middle &&
-      ring &&
-      pinky
-    )
-      return "HELLO"
-
-    if (
-      !index &&
+      pinky &&
       !middle &&
-      !ring &&
-      !pinky
+      !ring
     )
-      return "YES"
-
-    if (
-      index &&
-      !middle &&
-      !ring &&
-      !pinky
-    )
-      return "ONE"
-
-    if (
-      index &&
-      middle &&
-      !ring &&
-      !pinky
-    )
-      return "PEACE"
+      return "Z"
 
     return "UNKNOWN"
   }
@@ -377,7 +433,6 @@ export default function Page() {
       const ctx =
         canvas.getContext("2d")!
 
-      // 🔥 관절 위치 정확도 개선
       const displayWidth =
         video.clientWidth
 
@@ -415,22 +470,24 @@ export default function Page() {
             gesture,
             ...prev,
           ]
-          return updated.slice(0, 5)
+          return updated.slice(0, 8)
         })
 
-        // 문장 생성
+        // 문장
         if (
           gesture !== "UNKNOWN" &&
           gesture !== "NONE"
         ) {
           setSentence(prev => {
             if (
-              prev.includes(gesture)
+              prev.endsWith(
+                gesture
+              )
             )
               return prev
 
             return (
-              prev + " " + gesture
+              prev + gesture
             )
           })
         }
@@ -448,7 +505,7 @@ export default function Page() {
               Math.PI * 2
             )
 
-            ctx.fillStyle = "red"
+            ctx.fillStyle = "#ff0000"
             ctx.fill()
           }
         }
@@ -517,13 +574,10 @@ export default function Page() {
     }, 100)
   }
 
-  // =========================
-  // UI
-  // =========================
   return (
     <div style={styles.page}>
       <h1 style={styles.title}>
-        SIGN LANGUAGE AI 🤖
+        ASL Alphabet AI 🤟
       </h1>
 
       <p>{status}</p>
@@ -603,7 +657,9 @@ export default function Page() {
           </h2>
 
           <div style={styles.card}>
-            <h3>🧠 History</h3>
+            <h3>
+              🧠 Recent Letters
+            </h3>
 
             {history.map((h, i) => (
               <p key={i}>{h}</p>
@@ -611,8 +667,13 @@ export default function Page() {
           </div>
 
           <div style={styles.card}>
-            <h3>📖 Sentence</h3>
-            <p>{sentence || "..."}</p>
+            <h3>
+              📖 Word Builder
+            </h3>
+
+            <p>
+              {sentence || "..."}
+            </p>
           </div>
         </div>
       </div>
@@ -620,9 +681,6 @@ export default function Page() {
   )
 }
 
-// =========================
-// STYLE
-// =========================
 const styles: any = {
   page: {
     minHeight: "100vh",
