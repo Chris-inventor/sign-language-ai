@@ -7,29 +7,39 @@ import {
 } from "@mediapipe/tasks-vision"
 
 export default function Page() {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null)
 
-  const streamRef = useRef<MediaStream | null>(null)
-  const landmarkerRef = useRef<HandLandmarker | null>(null)
+  const canvasRef =
+    useRef<HTMLCanvasElement | null>(null)
+
+  const streamRef =
+    useRef<MediaStream | null>(null)
+
+  const landmarkerRef =
+    useRef<HandLandmarker | null>(null)
 
   const runningRef = useRef(false)
 
-  const [status, setStatus] = useState("READY")
-  const [result, setResult] = useState("손을 보여주세요 ✋")
+  const [status, setStatus] =
+    useState("READY")
 
-  const [devices, setDevices] = useState<
-    MediaDeviceInfo[]
-  >([])
+  const [result, setResult] = useState(
+    "손을 보여주세요 ✋"
+  )
+
+  const [devices, setDevices] =
+    useState<MediaDeviceInfo[]>([])
 
   const [selectedDevice, setSelectedDevice] =
     useState("")
 
-  const [history, setHistory] = useState<string[]>(
-    []
-  )
+  const [history, setHistory] = useState<
+    string[]
+  >([])
 
-  const [sentence, setSentence] = useState("")
+  const [sentence, setSentence] =
+    useState("")
 
   // =========================
   // 카메라 목록
@@ -83,6 +93,12 @@ export default function Page() {
                 deviceId: {
                   ideal: deviceId,
                 },
+                width: {
+                  ideal: 1280,
+                },
+                height: {
+                  ideal: 720,
+                },
               }
             : true,
         })
@@ -117,9 +133,17 @@ export default function Page() {
           baseOptions: {
             modelAssetPath:
               "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+
+            delegate: "GPU",
           },
+
           runningMode: "VIDEO",
+
           numHands: 1,
+
+          minHandDetectionConfidence: 0.8,
+          minHandPresenceConfidence: 0.8,
+          minTrackingConfidence: 0.8,
         }
       )
   }
@@ -128,7 +152,10 @@ export default function Page() {
   // 알파벳 인식
   // =========================
   const getGesture = (landmarks: any) => {
-    if (!landmarks || landmarks.length === 0)
+    if (
+      !landmarks ||
+      landmarks.length === 0
+    )
       return "NONE"
 
     const hand = landmarks[0]
@@ -138,19 +165,46 @@ export default function Page() {
       base: any
     ) => tip.y < base.y
 
-    const index = isUp(hand[8], hand[6])
-    const middle = isUp(hand[12], hand[10])
-    const ring = isUp(hand[16], hand[14])
-    const pinky = isUp(hand[20], hand[18])
+    const index = isUp(
+      hand[8],
+      hand[6]
+    )
+
+    const middle = isUp(
+      hand[12],
+      hand[10]
+    )
+
+    const ring = isUp(
+      hand[16],
+      hand[14]
+    )
+
+    const pinky = isUp(
+      hand[20],
+      hand[18]
+    )
 
     const thumb =
       hand[4].x < hand[3].x
+
+    const distance = (
+      a: any,
+      b: any
+    ) => {
+      return Math.sqrt(
+        (a.x - b.x) ** 2 +
+          (a.y - b.y) ** 2
+      )
+    }
+
+    const thumbIndex =
+      distance(hand[4], hand[8])
 
     // =========================
     // ASL 알파벳
     // =========================
 
-    // A
     if (
       thumb &&
       !index &&
@@ -160,7 +214,6 @@ export default function Page() {
     )
       return "A"
 
-    // B
     if (
       index &&
       middle &&
@@ -170,9 +223,8 @@ export default function Page() {
     )
       return "B"
 
-    // C
     if (
-      thumb &&
+      thumbIndex > 0.15 &&
       index &&
       middle &&
       ring &&
@@ -180,16 +232,15 @@ export default function Page() {
     )
       return "C"
 
-    // D
     if (
       index &&
       !middle &&
       !ring &&
-      !pinky
+      !pinky &&
+      !thumb
     )
       return "D"
 
-    // E
     if (
       !thumb &&
       !index &&
@@ -199,17 +250,14 @@ export default function Page() {
     )
       return "E"
 
-    // F
     if (
-      thumb &&
-      index &&
+      thumbIndex < 0.05 &&
       middle &&
       !ring &&
       !pinky
     )
       return "F"
 
-    // G
     if (
       thumb &&
       index &&
@@ -219,7 +267,6 @@ export default function Page() {
     )
       return "G"
 
-    // H
     if (
       index &&
       middle &&
@@ -228,24 +275,23 @@ export default function Page() {
     )
       return "H"
 
-    // I
     if (
       pinky &&
-      !thumb &&
       !index &&
       !middle &&
       !ring
     )
       return "I"
 
-    // J
     if (
       pinky &&
-      thumb
+      thumb &&
+      !index &&
+      !middle &&
+      !ring
     )
       return "J"
 
-    // K
     if (
       thumb &&
       index &&
@@ -255,7 +301,6 @@ export default function Page() {
     )
       return "K"
 
-    // L
     if (
       thumb &&
       index &&
@@ -265,7 +310,6 @@ export default function Page() {
     )
       return "L"
 
-    // M
     if (
       !thumb &&
       index &&
@@ -275,7 +319,6 @@ export default function Page() {
     )
       return "M"
 
-    // N
     if (
       !thumb &&
       index &&
@@ -285,15 +328,12 @@ export default function Page() {
     )
       return "N"
 
-    // O
     if (
-      thumb &&
-      ring &&
-      pinky
+      thumbIndex < 0.08 &&
+      !pinky
     )
       return "O"
 
-    // P
     if (
       thumb &&
       middle &&
@@ -303,7 +343,6 @@ export default function Page() {
     )
       return "P"
 
-    // Q
     if (
       thumb &&
       ring &&
@@ -313,7 +352,6 @@ export default function Page() {
     )
       return "Q"
 
-    // R
     if (
       index &&
       middle &&
@@ -322,7 +360,6 @@ export default function Page() {
     )
       return "R"
 
-    // S
     if (
       !thumb &&
       !index &&
@@ -332,7 +369,6 @@ export default function Page() {
     )
       return "S"
 
-    // T
     if (
       thumb &&
       !index &&
@@ -342,16 +378,15 @@ export default function Page() {
     )
       return "T"
 
-    // U
     if (
       index &&
       middle &&
       !ring &&
-      !pinky
+      !pinky &&
+      thumb
     )
       return "U"
 
-    // V
     if (
       index &&
       middle &&
@@ -361,7 +396,6 @@ export default function Page() {
     )
       return "V"
 
-    // W
     if (
       index &&
       middle &&
@@ -370,7 +404,6 @@ export default function Page() {
     )
       return "W"
 
-    // X
     if (
       index &&
       !middle &&
@@ -379,7 +412,6 @@ export default function Page() {
     )
       return "X"
 
-    // Y
     if (
       thumb &&
       pinky &&
@@ -389,7 +421,6 @@ export default function Page() {
     )
       return "Y"
 
-    // Z
     if (
       index &&
       pinky &&
@@ -413,6 +444,7 @@ export default function Page() {
     }
 
     runningRef.current = true
+
     setStatus("RUNNING")
 
     const loop = async () => {
@@ -442,10 +474,13 @@ export default function Page() {
       canvas.width = displayWidth
       canvas.height = displayHeight
 
+      const now =
+        performance.now()
+
       const results =
         landmarker.detectForVideo(
           video,
-          performance.now()
+          now
         )
 
       ctx.clearRect(
@@ -458,9 +493,10 @@ export default function Page() {
       if (
         results.landmarks.length > 0
       ) {
-        const gesture = getGesture(
-          results.landmarks
-        )
+        const gesture =
+          getGesture(
+            results.landmarks
+          )
 
         setResult(gesture)
 
@@ -470,10 +506,11 @@ export default function Page() {
             gesture,
             ...prev,
           ]
+
           return updated.slice(0, 8)
         })
 
-        // 문장
+        // 문장 생성
         if (
           gesture !== "UNKNOWN" &&
           gesture !== "NONE"
@@ -495,17 +532,25 @@ export default function Page() {
         // 랜드마크
         for (const hand of results.landmarks) {
           for (const p of hand) {
+            const x =
+              p.x * displayWidth
+
+            const y =
+              p.y * displayHeight
+
             ctx.beginPath()
 
             ctx.arc(
-              p.x * displayWidth,
-              p.y * displayHeight,
-              5,
+              x,
+              y,
+              7,
               0,
               Math.PI * 2
             )
 
-            ctx.fillStyle = "#ff0000"
+            ctx.fillStyle =
+              "#ff0000"
+
             ctx.fill()
           }
         }
@@ -533,14 +578,18 @@ export default function Page() {
   const reset = () => {
     runningRef.current = false
 
-    setResult("손을 보여주세요 ✋")
+    setResult(
+      "손을 보여주세요 ✋"
+    )
 
     setHistory([])
+
     setSentence("")
 
     setStatus("READY")
 
-    const canvas = canvasRef.current
+    const canvas =
+      canvasRef.current
 
     if (canvas) {
       const ctx =
