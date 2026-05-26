@@ -94,10 +94,10 @@ export default function Page() {
                   ideal: deviceId,
                 },
                 width: {
-                  ideal: 1280,
+                  ideal: 1920,
                 },
                 height: {
-                  ideal: 720,
+                  ideal: 1080,
                 },
               }
             : true,
@@ -141,15 +141,39 @@ export default function Page() {
 
           numHands: 1,
 
-          minHandDetectionConfidence: 0.8,
-          minHandPresenceConfidence: 0.8,
-          minTrackingConfidence: 0.8,
+          // 🔥 정확도 향상
+          minHandDetectionConfidence: 0.9,
+          minHandPresenceConfidence: 0.9,
+          minTrackingConfidence: 0.9,
         }
       )
   }
 
   // =========================
-  // 알파벳 인식
+  // 유틸
+  // =========================
+  const distance = (
+    a: any,
+    b: any
+  ) => {
+    return Math.sqrt(
+      (a.x - b.x) ** 2 +
+        (a.y - b.y) ** 2
+    )
+  }
+
+  // =========================
+  // 손가락 상태
+  // =========================
+  const fingerUp = (
+    tip: any,
+    pip: any
+  ) => {
+    return tip.y < pip.y
+  }
+
+  // =========================
+  // ASL 인식
   // =========================
   const getGesture = (landmarks: any) => {
     if (
@@ -160,274 +184,189 @@ export default function Page() {
 
     const hand = landmarks[0]
 
-    const isUp = (
-      tip: any,
-      base: any
-    ) => tip.y < base.y
+    // 손가락 상태
+    const thumbOpen =
+      hand[4].x < hand[3].x
 
-    const index = isUp(
+    const indexOpen = fingerUp(
       hand[8],
       hand[6]
     )
 
-    const middle = isUp(
+    const middleOpen = fingerUp(
       hand[12],
       hand[10]
     )
 
-    const ring = isUp(
+    const ringOpen = fingerUp(
       hand[16],
       hand[14]
     )
 
-    const pinky = isUp(
+    const pinkyOpen = fingerUp(
       hand[20],
       hand[18]
     )
 
-    const thumb =
-      hand[4].x < hand[3].x
-
-    const distance = (
-      a: any,
-      b: any
-    ) => {
-      return Math.sqrt(
-        (a.x - b.x) ** 2 +
-          (a.y - b.y) ** 2
-      )
-    }
-
+    // 거리
     const thumbIndex =
       distance(hand[4], hand[8])
 
     // =========================
-    // ASL 알파벳
+    // 정확도 높은 알파벳만 우선
     // =========================
 
+    // A
     if (
-      thumb &&
-      !index &&
-      !middle &&
-      !ring &&
-      !pinky
+      thumbOpen &&
+      !indexOpen &&
+      !middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "A"
 
+    // B
     if (
-      index &&
-      middle &&
-      ring &&
-      pinky &&
-      !thumb
+      !thumbOpen &&
+      indexOpen &&
+      middleOpen &&
+      ringOpen &&
+      pinkyOpen
     )
       return "B"
 
+    // C
     if (
-      thumbIndex > 0.15 &&
-      index &&
-      middle &&
-      ring &&
-      pinky
+      thumbIndex > 0.12 &&
+      indexOpen &&
+      middleOpen &&
+      ringOpen &&
+      pinkyOpen
     )
       return "C"
 
+    // D
     if (
-      index &&
-      !middle &&
-      !ring &&
-      !pinky &&
-      !thumb
+      indexOpen &&
+      !middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "D"
 
+    // E
     if (
-      !thumb &&
-      !index &&
-      !middle &&
-      !ring &&
-      !pinky
+      !thumbOpen &&
+      !indexOpen &&
+      !middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "E"
 
+    // F
     if (
       thumbIndex < 0.05 &&
-      middle &&
-      !ring &&
-      !pinky
+      middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "F"
 
+    // G
     if (
-      thumb &&
-      index &&
-      !middle &&
-      !ring &&
-      pinky
+      thumbOpen &&
+      indexOpen &&
+      !middleOpen &&
+      !ringOpen &&
+      pinkyOpen
     )
       return "G"
 
+    // H
     if (
-      index &&
-      middle &&
-      !ring &&
-      pinky
+      indexOpen &&
+      middleOpen &&
+      !ringOpen &&
+      pinkyOpen
     )
       return "H"
 
+    // I
     if (
-      pinky &&
-      !index &&
-      !middle &&
-      !ring
+      pinkyOpen &&
+      !indexOpen &&
+      !middleOpen &&
+      !ringOpen
     )
       return "I"
 
+    // K
     if (
-      pinky &&
-      thumb &&
-      !index &&
-      !middle &&
-      !ring
-    )
-      return "J"
-
-    if (
-      thumb &&
-      index &&
-      middle &&
-      !ring &&
-      !pinky
+      thumbOpen &&
+      indexOpen &&
+      middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "K"
 
+    // L
     if (
-      thumb &&
-      index &&
-      !middle &&
-      !ring &&
-      !pinky
+      thumbOpen &&
+      indexOpen &&
+      !middleOpen &&
+      !ringOpen &&
+      !pinkyOpen
     )
       return "L"
 
-    if (
-      !thumb &&
-      index &&
-      middle &&
-      ring &&
-      !pinky
-    )
-      return "M"
-
-    if (
-      !thumb &&
-      index &&
-      middle &&
-      !ring &&
-      !pinky
-    )
-      return "N"
-
+    // O
     if (
       thumbIndex < 0.08 &&
-      !pinky
+      !pinkyOpen
     )
       return "O"
 
+    // U
     if (
-      thumb &&
-      middle &&
-      !index &&
-      !ring &&
-      !pinky
-    )
-      return "P"
-
-    if (
-      thumb &&
-      ring &&
-      !index &&
-      !middle &&
-      !pinky
-    )
-      return "Q"
-
-    if (
-      index &&
-      middle &&
-      ring &&
-      !pinky
-    )
-      return "R"
-
-    if (
-      !thumb &&
-      !index &&
-      !middle &&
-      ring &&
-      !pinky
-    )
-      return "S"
-
-    if (
-      thumb &&
-      !index &&
-      middle &&
-      !ring &&
-      !pinky
-    )
-      return "T"
-
-    if (
-      index &&
-      middle &&
-      !ring &&
-      !pinky &&
-      thumb
+      indexOpen &&
+      middleOpen &&
+      !ringOpen &&
+      !pinkyOpen &&
+      thumbOpen
     )
       return "U"
 
+    // V
     if (
-      index &&
-      middle &&
-      !ring &&
-      !pinky &&
-      !thumb
+      indexOpen &&
+      middleOpen &&
+      !ringOpen &&
+      !pinkyOpen &&
+      !thumbOpen
     )
       return "V"
 
+    // W
     if (
-      index &&
-      middle &&
-      ring &&
-      !pinky
+      indexOpen &&
+      middleOpen &&
+      ringOpen &&
+      !pinkyOpen
     )
       return "W"
 
+    // Y
     if (
-      index &&
-      !middle &&
-      ring &&
-      !pinky
-    )
-      return "X"
-
-    if (
-      thumb &&
-      pinky &&
-      !index &&
-      !middle &&
-      !ring
+      thumbOpen &&
+      pinkyOpen &&
+      !indexOpen &&
+      !middleOpen &&
+      !ringOpen
     )
       return "Y"
-
-    if (
-      index &&
-      pinky &&
-      !middle &&
-      !ring
-    )
-      return "Z"
 
     return "UNKNOWN"
   }
@@ -529,7 +468,9 @@ export default function Page() {
           })
         }
 
+        // =========================
         // 랜드마크
+        // =========================
         for (const hand of results.landmarks) {
           for (const p of hand) {
             const x =
@@ -543,7 +484,7 @@ export default function Page() {
             ctx.arc(
               x,
               y,
-              7,
+              8,
               0,
               Math.PI * 2
             )
@@ -552,6 +493,60 @@ export default function Page() {
               "#ff0000"
 
             ctx.fill()
+          }
+
+          // 연결선
+          const connections = [
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [3, 4],
+
+            [0, 5],
+            [5, 6],
+            [6, 7],
+            [7, 8],
+
+            [5, 9],
+            [9, 10],
+            [10, 11],
+            [11, 12],
+
+            [9, 13],
+            [13, 14],
+            [14, 15],
+            [15, 16],
+
+            [13, 17],
+            [17, 18],
+            [18, 19],
+            [19, 20],
+
+            [0, 17],
+          ]
+
+          ctx.strokeStyle =
+            "#00ff99"
+
+          ctx.lineWidth = 3
+
+          for (const [a, b] of connections) {
+            const p1 = hand[a]
+            const p2 = hand[b]
+
+            ctx.beginPath()
+
+            ctx.moveTo(
+              p1.x * displayWidth,
+              p1.y * displayHeight
+            )
+
+            ctx.lineTo(
+              p2.x * displayWidth,
+              p2.y * displayHeight
+            )
+
+            ctx.stroke()
           }
         }
       } else {
@@ -632,7 +627,6 @@ export default function Page() {
       <p>{status}</p>
 
       <div style={styles.container}>
-        {/* VIDEO */}
         <div style={styles.videoBox}>
           <video
             ref={videoRef}
@@ -648,7 +642,6 @@ export default function Page() {
           />
         </div>
 
-        {/* PANEL */}
         <div style={styles.panel}>
           <select
             value={selectedDevice}
