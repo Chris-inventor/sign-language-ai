@@ -1,7 +1,7 @@
-"use client"
 // =========================
-// ASL 알파벳 전용 getGesture 함수
-// 기존 getGesture 전체를 이것으로 교체
+// 손동작 / ASL 알파벳 전용
+// 기존 카메라, 버튼, UI, 손관절 유지
+// 일반 제스처 제거 버전
 // =========================
 
 const getGesture = (landmarks: any) => {
@@ -24,7 +24,7 @@ const getGesture = (landmarks: any) => {
     hand[4].x < hand[3].x
 
   // =========================
-  // ASL ALPHABET ONLY
+  // ASL ALPHABET
   // =========================
 
   // A
