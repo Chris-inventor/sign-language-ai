@@ -1,8 +1,3 @@
-// =========================
-// 손동작 / ASL 알파벳 전용
-// 기존 카메라, 버튼, UI, 손관절 유지
-// 일반 제스처 제거 버전
-// =========================
 
 const getGesture = (landmarks: any) => {
   if (!landmarks || landmarks.length === 0)
